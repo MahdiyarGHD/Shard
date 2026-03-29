@@ -18,7 +18,7 @@ export default function App() {
       <header className="border-b border-slate-800/80 bg-slate-900/95 backdrop-blur-sm sticky top-0 z-10">
         <div className="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            {/* Shield icon */}
+            {/* Scissors icon */}
             <div className="w-9 h-9 rounded-xl bg-indigo-500/20 flex items-center justify-center">
               <svg
                 className="w-5 h-5 text-indigo-400"
@@ -30,7 +30,7 @@ export default function App() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={1.75}
-                  d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+                  d="M7.848 8.25l1.536.887M7.848 8.25a3 3 0 11-5.196-3 3 3 0 015.196 3zm1.536.887a2.165 2.165 0 011.083 1.839c.005.351.054.695.14 1.024M9.384 9.137l2.077 1.199M7.848 15.75l1.536-.887m-1.536.887a3 3 0 11-5.196 3 3 3 0 015.196-3zm1.536-.887a2.165 2.165 0 001.083-1.838c.005-.352.054-.695.14-1.025m-1.223 2.863l2.077-1.199m0-3.328a4.323 4.323 0 012.068-1.379l5.325-1.628a4.5 4.5 0 012.48-.044l.803.215-7.794 4.5m-2.882-1.664L10.6 9.214m-2.135 3.572l2.135-1.236"
                 />
               </svg>
             </div>
@@ -91,12 +91,38 @@ export default function App() {
 
       {/* Footer */}
       <footer className="max-w-2xl mx-auto px-4 pb-6 w-full">
-        <div className={`flex items-center gap-2 text-slate-500 text-xs justify-center`}>
-          <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-          </svg>
-          <span>{t.secureNote}</span>
+        <div className="flex flex-col items-center gap-2 text-slate-500 text-xs">
+          <div className="flex items-center gap-2">
+            <svg className="w-3.5 h-3.5 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+            </svg>
+            <span>{t.secureNote}</span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span>Made with</span>
+            <svg className="w-3 h-3 text-red-400 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z" />
+            </svg>
+            <span>by</span>
+            <a
+              href="https://github.com/MahdiyarGHD"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              MahdiyarGHD
+            </a>
+            <span>·</span>
+            <a
+              href="https://github.com/MahdiyarGHD/Shard"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-indigo-400 hover:text-indigo-300 transition-colors"
+            >
+              GitHub
+            </a>
+          </div>
         </div>
       </footer>
     </div>
