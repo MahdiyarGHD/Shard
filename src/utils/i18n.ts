@@ -22,6 +22,8 @@ export interface Translations {
   splitProgress: string;
   splitComplete: string;
   chunksCreated: string;
+  fileHashLabel: string;
+  fileHashCopied: string;
   // Joiner
   joinTitle: string;
   dropChunksHere: string;
@@ -40,6 +42,12 @@ export interface Translations {
   downloadJoined: string;
   outputFilename: string;
   outputFilenamePlaceholder: string;
+  // Encryption
+  encryptPasswordLabel: string;
+  encryptPasswordPlaceholder: string;
+  decryptPasswordLabel: string;
+  decryptPasswordPlaceholder: string;
+  errorWrongPassword: string;
   // Errors
   errorNoFile: string;
   errorInvalidChunkSize: string;
@@ -76,6 +84,8 @@ const en: Translations = {
   splitProgress: 'Splitting progress',
   splitComplete: 'Split complete!',
   chunksCreated: 'chunks created',
+  fileHashLabel: 'Original file SHA-256',
+  fileHashCopied: 'Copied!',
   joinTitle: 'Join Chunks',
   dropChunksHere: 'Drop chunk files here or click to add',
   addChunks: 'Add Chunks',
@@ -93,6 +103,11 @@ const en: Translations = {
   downloadJoined: 'Download File',
   outputFilename: 'Output filename',
   outputFilenamePlaceholder: 'Leave blank to use original name',
+  encryptPasswordLabel: 'Encryption password (optional)',
+  encryptPasswordPlaceholder: 'Leave blank for no encryption',
+  decryptPasswordLabel: 'Decryption password',
+  decryptPasswordPlaceholder: 'Enter password if chunks are encrypted',
+  errorWrongPassword: 'Decryption failed — check your password.',
   errorNoFile: 'Please select a file first.',
   errorInvalidChunkSize: 'Please enter a valid chunk size (> 0).',
   errorNoChunks: 'Please add at least one chunk file.',
@@ -126,6 +141,8 @@ const fa: Translations = {
   splitProgress: 'پیشرفت تقسیم',
   splitComplete: 'تقسیم کامل شد!',
   chunksCreated: 'قطعه ساخته شد',
+  fileHashLabel: 'SHA-256 فایل اصلی',
+  fileHashCopied: 'کپی شد!',
   joinTitle: 'ادغام قطعات',
   dropChunksHere: 'فایل‌های قطعه را اینجا بکشید یا کلیک کنید',
   addChunks: 'افزودن قطعات',
@@ -143,6 +160,11 @@ const fa: Translations = {
   downloadJoined: 'دانلود فایل',
   outputFilename: 'نام فایل خروجی',
   outputFilenamePlaceholder: 'خالی بگذارید تا از نام اصلی استفاده شود',
+  encryptPasswordLabel: 'رمز عبور رمزنگاری (اختیاری)',
+  encryptPasswordPlaceholder: 'برای عدم رمزنگاری خالی بگذارید',
+  decryptPasswordLabel: 'رمز عبور رمزگشایی',
+  decryptPasswordPlaceholder: 'اگر قطعات رمزنگاری شده‌اند وارد کنید',
+  errorWrongPassword: 'رمزگشایی ناموفق — رمز عبور را بررسی کنید.',
   errorNoFile: 'لطفاً ابتدا یک فایل انتخاب کنید.',
   errorInvalidChunkSize: 'لطفاً یک اندازه معتبر (بیشتر از صفر) وارد کنید.',
   errorNoChunks: 'لطفاً حداقل یک فایل قطعه اضافه کنید.',
