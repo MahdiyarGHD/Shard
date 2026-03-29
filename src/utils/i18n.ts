@@ -47,6 +47,8 @@ export interface Translations {
   encryptPasswordPlaceholder: string;
   decryptPasswordLabel: string;
   decryptPasswordPlaceholder: string;
+  showPassword: string;
+  hidePassword: string;
   errorWrongPassword: string;
   // Errors
   errorNoFile: string;
@@ -107,6 +109,8 @@ const en: Translations = {
   encryptPasswordPlaceholder: 'Leave blank for no encryption',
   decryptPasswordLabel: 'Decryption password',
   decryptPasswordPlaceholder: 'Enter password if chunks are encrypted',
+  showPassword: 'Show password',
+  hidePassword: 'Hide password',
   errorWrongPassword: 'Decryption failed — check your password.',
   errorNoFile: 'Please select a file first.',
   errorInvalidChunkSize: 'Please enter a valid chunk size (> 0).',
@@ -164,6 +168,8 @@ const fa: Translations = {
   encryptPasswordPlaceholder: 'برای عدم رمزنگاری خالی بگذارید',
   decryptPasswordLabel: 'رمز عبور رمزگشایی',
   decryptPasswordPlaceholder: 'اگر قطعات رمزنگاری شده‌اند وارد کنید',
+  showPassword: 'نمایش رمز عبور',
+  hidePassword: 'پنهان کردن رمز عبور',
   errorWrongPassword: 'رمزگشایی ناموفق — رمز عبور را بررسی کنید.',
   errorNoFile: 'لطفاً ابتدا یک فایل انتخاب کنید.',
   errorInvalidChunkSize: 'لطفاً یک اندازه معتبر (بیشتر از صفر) وارد کنید.',
