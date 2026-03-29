@@ -151,7 +151,7 @@ const fa: Translations = {
   kb: 'کیلوبایت',
   mb: 'مگابایت',
   gb: 'گیگابایت',
-  secureNote: 'کاملاً محلی و امن',
+  secureNote: 'کاملاً آفلاین و ایمن',
   langToggle: 'English',
 };
 

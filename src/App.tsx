@@ -59,7 +59,7 @@ export default function App() {
       </div>
 
       {/* Tab bar */}
-      <div className="max-w-2xl mx-auto px-4 pb-2 w-full">
+      <div className="max-w-2xl mx-auto px-4 pb-2 w-full mt-2">
         <div className="flex bg-slate-800/60 rounded-2xl p-1 gap-1">
           {(['split', 'join'] as Tab[]).map((tabKey) => (
             <button
