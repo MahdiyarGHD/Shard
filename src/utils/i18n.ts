@@ -50,6 +50,7 @@ export interface Translations {
   showPassword: string;
   hidePassword: string;
   errorWrongPassword: string;
+  errorPasswordRequired: string;
   // Errors
   errorNoFile: string;
   errorInvalidChunkSize: string;
@@ -112,6 +113,7 @@ const en: Translations = {
   showPassword: 'Show password',
   hidePassword: 'Hide password',
   errorWrongPassword: 'Decryption failed — check your password.',
+  errorPasswordRequired: 'These chunks are encrypted — please enter the decryption password.',
   errorNoFile: 'Please select a file first.',
   errorInvalidChunkSize: 'Please enter a valid chunk size (> 0).',
   errorNoChunks: 'Please add at least one chunk file.',
@@ -171,6 +173,7 @@ const fa: Translations = {
   showPassword: 'نمایش رمز عبور',
   hidePassword: 'پنهان کردن رمز عبور',
   errorWrongPassword: 'رمزگشایی ناموفق — رمز عبور را بررسی کنید.',
+  errorPasswordRequired: 'این قطعات رمزنگاری شده‌اند — لطفاً رمز عبور رمزگشایی را وارد کنید.',
   errorNoFile: 'لطفاً ابتدا یک فایل انتخاب کنید.',
   errorInvalidChunkSize: 'لطفاً یک اندازه معتبر (بیشتر از صفر) وارد کنید.',
   errorNoChunks: 'لطفاً حداقل یک فایل قطعه اضافه کنید.',

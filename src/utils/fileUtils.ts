@@ -4,6 +4,13 @@ const SALT_BYTES = 16;
 const IV_BYTES = 12;
 const PBKDF2_ITERATIONS = 200_000;
 
+// Magic header prepended to every encrypted chunk: ASCII "SHRD"
+const MAGIC = new Uint8Array([0x53, 0x48, 0x52, 0x44]);
+const MAGIC_BYTES = MAGIC.length;
+
+/** Thrown by joinChunks when chunks are encrypted but no password was provided. */
+export const NEEDS_PASSWORD_ERROR = 'NEEDS_PASSWORD';
+
 async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
   const enc = new TextEncoder();
   const keyMaterial = await crypto.subtle.importKey(
@@ -24,32 +31,50 @@ async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promi
 
 /**
  * Encrypt a Blob with AES-256-GCM.
- * Output layout: [salt (16 B) | IV (12 B) | ciphertext]
+ * Output layout: [magic (4 B) | salt (16 B) | IV (12 B) | ciphertext]
  */
 export async function encryptBlob(blob: Blob, password: string, salt: Uint8Array<ArrayBuffer>): Promise<Blob> {
   const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
   const key = await deriveKey(password, salt);
   const data = await blob.arrayBuffer();
   const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
-  const out = new Uint8Array(SALT_BYTES + IV_BYTES + ciphertext.byteLength);
-  out.set(salt, 0);
-  out.set(iv, SALT_BYTES);
-  out.set(new Uint8Array(ciphertext), SALT_BYTES + IV_BYTES);
+  const out = new Uint8Array(MAGIC_BYTES + SALT_BYTES + IV_BYTES + ciphertext.byteLength);
+  out.set(MAGIC, 0);
+  out.set(salt, MAGIC_BYTES);
+  out.set(iv, MAGIC_BYTES + SALT_BYTES);
+  out.set(new Uint8Array(ciphertext), MAGIC_BYTES + SALT_BYTES + IV_BYTES);
   return new Blob([out]);
 }
 
 /**
  * Decrypt a Blob that was produced by `encryptBlob`.
+ * Supports both the new format (magic + salt + IV + ciphertext) and the
+ * legacy format (salt + IV + ciphertext) for backward compatibility.
  * Throws if the password is wrong or the data is corrupted.
  */
 export async function decryptBlob(blob: Blob, password: string): Promise<Blob> {
   const data = new Uint8Array(await blob.arrayBuffer());
-  const salt = data.slice(0, SALT_BYTES) as Uint8Array<ArrayBuffer>;
-  const iv = data.slice(SALT_BYTES, SALT_BYTES + IV_BYTES);
-  const ciphertext = data.slice(SALT_BYTES + IV_BYTES);
+  // Detect new format by checking for the magic header.
+  const hasMagic =
+    data.length >= MAGIC_BYTES &&
+    data[0] === MAGIC[0] && data[1] === MAGIC[1] &&
+    data[2] === MAGIC[2] && data[3] === MAGIC[3];
+  const offset = hasMagic ? MAGIC_BYTES : 0;
+  const salt = data.slice(offset, offset + SALT_BYTES) as Uint8Array<ArrayBuffer>;
+  const iv = data.slice(offset + SALT_BYTES, offset + SALT_BYTES + IV_BYTES);
+  const ciphertext = data.slice(offset + SALT_BYTES + IV_BYTES);
   const key = await deriveKey(password, salt);
   const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
   return new Blob([plaintext]);
+}
+
+/** Returns true if the blob was encrypted by this app (has the SHRD magic header). */
+async function isEncryptedBlob(blob: Blob): Promise<boolean> {
+  const header = new Uint8Array(await blob.slice(0, MAGIC_BYTES).arrayBuffer());
+  return (
+    header[0] === MAGIC[0] && header[1] === MAGIC[1] &&
+    header[2] === MAGIC[2] && header[3] === MAGIC[3]
+  );
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -150,6 +175,7 @@ export async function splitFile(
  * Join an array of Files (chunks) into a single Blob.
  * Files should already be sorted in order.
  * If `password` is provided, every chunk is decrypted before joining.
+ * Throws `Error(NEEDS_PASSWORD_ERROR)` when chunks are encrypted but no password was given.
  * Calls `onProgress(percent)` during joining.
  */
 export async function joinChunks(
@@ -164,6 +190,10 @@ export async function joinChunks(
       const decrypted = await decryptBlob(files[i], password);
       data = await decrypted.arrayBuffer();
     } else {
+      // Detect encrypted chunks even when no password was supplied.
+      if (await isEncryptedBlob(files[i])) {
+        throw new Error(NEEDS_PASSWORD_ERROR);
+      }
       data = await readFileAsArrayBuffer(files[i]);
     }
     buffers.push(data);

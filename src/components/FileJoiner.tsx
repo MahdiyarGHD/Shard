@@ -7,6 +7,7 @@ import {
   sha256,
   downloadBlob,
   readFileAsArrayBuffer,
+  NEEDS_PASSWORD_ERROR,
 } from '../utils/fileUtils';
 import DropZone from './DropZone';
 import ProgressBar from './ProgressBar';
@@ -86,8 +87,11 @@ export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
       setChecksum(hash);
       setJoinedBlob(blob);
     } catch (err) {
+      // Encrypted chunks detected but no password was supplied
+      if (err instanceof Error && err.message === NEEDS_PASSWORD_ERROR) {
+        setError(t.errorPasswordRequired);
       // AES-GCM throws DOMException(OperationError) on wrong password / corrupted data
-      if (err instanceof DOMException && err.name === 'OperationError') {
+      } else if (err instanceof DOMException && err.name === 'OperationError') {
         setError(t.errorWrongPassword);
       } else {
         setError(t.errorReadingFile);
