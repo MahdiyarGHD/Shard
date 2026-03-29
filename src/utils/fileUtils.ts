@@ -1,3 +1,59 @@
+// ─── Encryption helpers (AES-256-GCM + PBKDF2) ───────────────────────────────
+
+const SALT_BYTES = 16;
+const IV_BYTES = 12;
+const PBKDF2_ITERATIONS = 200_000;
+
+async function deriveKey(password: string, salt: Uint8Array<ArrayBuffer>): Promise<CryptoKey> {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(password),
+    'PBKDF2',
+    false,
+    ['deriveKey'],
+  );
+  return crypto.subtle.deriveKey(
+    { name: 'PBKDF2', salt, iterations: PBKDF2_ITERATIONS, hash: 'SHA-256' },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt'],
+  );
+}
+
+/**
+ * Encrypt a Blob with AES-256-GCM.
+ * Output layout: [salt (16 B) | IV (12 B) | ciphertext]
+ */
+export async function encryptBlob(blob: Blob, password: string, salt: Uint8Array<ArrayBuffer>): Promise<Blob> {
+  const iv = crypto.getRandomValues(new Uint8Array(IV_BYTES));
+  const key = await deriveKey(password, salt);
+  const data = await blob.arrayBuffer();
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  const out = new Uint8Array(SALT_BYTES + IV_BYTES + ciphertext.byteLength);
+  out.set(salt, 0);
+  out.set(iv, SALT_BYTES);
+  out.set(new Uint8Array(ciphertext), SALT_BYTES + IV_BYTES);
+  return new Blob([out]);
+}
+
+/**
+ * Decrypt a Blob that was produced by `encryptBlob`.
+ * Throws if the password is wrong or the data is corrupted.
+ */
+export async function decryptBlob(blob: Blob, password: string): Promise<Blob> {
+  const data = new Uint8Array(await blob.arrayBuffer());
+  const salt = data.slice(0, SALT_BYTES) as Uint8Array<ArrayBuffer>;
+  const iv = data.slice(SALT_BYTES, SALT_BYTES + IV_BYTES);
+  const ciphertext = data.slice(SALT_BYTES + IV_BYTES);
+  const key = await deriveKey(password, salt);
+  const plaintext = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, ciphertext);
+  return new Blob([plaintext]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 /** Format bytes into a human-readable string */
 export function formatBytes(bytes: number, decimals = 2): string {
   if (bytes === 0) return '0 B';
@@ -44,24 +100,35 @@ export interface ChunkInfo {
 
 /**
  * Split a File into chunks of `chunkSizeBytes` each.
+ * If `password` is provided, every chunk is encrypted with AES-256-GCM.
  * Calls `onProgress(percent)` during splitting.
  */
 export async function splitFile(
   file: File,
   chunkSizeBytes: number,
   onProgress?: (percent: number) => void,
+  password?: string,
 ): Promise<ChunkInfo[]> {
   const chunks: ChunkInfo[] = [];
   const totalChunks = Math.ceil(file.size / chunkSizeBytes);
+  // One random salt shared by all chunks so the same password decrypts all of them.
+  const salt = password
+    ? (crypto.getRandomValues(new Uint8Array(16)) as Uint8Array<ArrayBuffer>)
+    : undefined;
 
   for (let i = 0; i < totalChunks; i++) {
     const start = i * chunkSizeBytes;
     const end = Math.min(start + chunkSizeBytes, file.size);
-    const blob = file.slice(start, end);
+    let blob: Blob = file.slice(start, end);
     const ext = file.name.includes('.') ? `.${file.name.split('.').pop()}` : '';
     const basename = file.name.includes('.')
       ? file.name.slice(0, file.name.lastIndexOf('.'))
       : file.name;
+
+    if (password && salt) {
+      blob = await encryptBlob(blob, password, salt);
+    }
+
     chunks.push({
       index: i,
       blob,
@@ -82,16 +149,24 @@ export async function splitFile(
 /**
  * Join an array of Files (chunks) into a single Blob.
  * Files should already be sorted in order.
+ * If `password` is provided, every chunk is decrypted before joining.
  * Calls `onProgress(percent)` during joining.
  */
 export async function joinChunks(
   files: File[],
   onProgress?: (percent: number) => void,
+  password?: string,
 ): Promise<Blob> {
   const buffers: ArrayBuffer[] = [];
   for (let i = 0; i < files.length; i++) {
-    const buf = await readFileAsArrayBuffer(files[i]);
-    buffers.push(buf);
+    let data: ArrayBuffer;
+    if (password) {
+      const decrypted = await decryptBlob(files[i], password);
+      data = await decrypted.arrayBuffer();
+    } else {
+      data = await readFileAsArrayBuffer(files[i]);
+    }
+    buffers.push(data);
     if (onProgress) {
       onProgress(Math.round(((i + 1) / files.length) * 100));
     }

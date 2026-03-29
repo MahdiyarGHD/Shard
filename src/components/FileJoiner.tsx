@@ -19,6 +19,7 @@ interface FileJoinerProps {
 export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
   const [chunkFiles, setChunkFiles] = useState<File[]>([]);
   const [outputFilename, setOutputFilename] = useState('');
+  const [password, setPassword] = useState('');
   const [joining, setJoining] = useState(false);
   const [progress, setProgress] = useState(0);
   const [checksum, setChecksum] = useState('');
@@ -77,14 +78,19 @@ export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
     setChecksum('');
     setJoinedBlob(null);
     try {
-      const blob = await joinChunks(chunkFiles, setProgress);
+      const blob = await joinChunks(chunkFiles, setProgress, password || undefined);
       // Compute SHA-256
       const buf = await readFileAsArrayBuffer(new File([blob], 'joined'));
       const hash = await sha256(buf);
       setChecksum(hash);
       setJoinedBlob(blob);
-    } catch {
-      setError(t.errorReadingFile);
+    } catch (err) {
+      // AES-GCM throws DOMException(OperationError) on wrong password / corrupted data
+      if (err instanceof DOMException && err.name === 'OperationError') {
+        setError(t.errorWrongPassword);
+      } else {
+        setError(t.errorReadingFile);
+      }
     } finally {
       setJoining(false);
     }
@@ -191,6 +197,22 @@ export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
           value={outputFilename}
           onChange={(e) => setOutputFilename(e.target.value)}
           placeholder={t.outputFilenamePlaceholder}
+          className="
+            w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5
+            text-slate-100 placeholder-slate-500 text-sm
+            focus:outline-none focus:border-indigo-400 transition-colors
+          "
+        />
+      </div>
+
+      {/* Password (decryption) */}
+      <div className="space-y-2">
+        <label className="block text-sm text-slate-300">{t.decryptPasswordLabel}</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={t.decryptPasswordPlaceholder}
           className="
             w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5
             text-slate-100 placeholder-slate-500 text-sm

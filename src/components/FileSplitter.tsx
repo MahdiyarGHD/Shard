@@ -4,6 +4,8 @@ import {
   formatBytes,
   splitFile,
   downloadBlob,
+  readFileAsArrayBuffer,
+  sha256,
   type ChunkInfo,
 } from '../utils/fileUtils';
 import DropZone from './DropZone';
@@ -30,14 +32,18 @@ interface FileSplitterProps {
 export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
   const [file, setFile] = useState<File | null>(null);
   const [chunkSizeMB, setChunkSizeMB] = useState<string>(getInitialChunkSize);
+  const [password, setPassword] = useState('');
   const [splitting, setSplitting] = useState(false);
   const [progress, setProgress] = useState(0);
   const [chunks, setChunks] = useState<ChunkInfo[]>([]);
+  const [fileHash, setFileHash] = useState('');
+  const [fileHashCopied, setFileHashCopied] = useState(false);
   const [error, setError] = useState('');
 
   const handleFileSelect = useCallback((files: File[]) => {
     setFile(files[0]);
     setChunks([]);
+    setFileHash('');
     setError('');
     setProgress(0);
   }, []);
@@ -56,9 +62,14 @@ export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
     setSplitting(true);
     setProgress(0);
     setChunks([]);
+    setFileHash('');
     try {
       localStorage.setItem(CHUNK_SIZE_STORAGE_KEY, chunkSizeMB);
-      const result = await splitFile(file, mb * 1024 * 1024, setProgress);
+      // Compute SHA-256 of the original file before splitting
+      const buf = await readFileAsArrayBuffer(file);
+      const hash = await sha256(buf);
+      setFileHash(hash);
+      const result = await splitFile(file, mb * 1024 * 1024, setProgress, password || undefined);
       setChunks(result);
     } catch {
       setError(t.errorReadingFile);
@@ -73,6 +84,17 @@ export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
 
   function handleDownloadAll() {
     chunks.forEach((chunk) => downloadBlob(chunk.blob, chunk.filename));
+  }
+
+  async function copyFileHash() {
+    if (!fileHash) return;
+    try {
+      await navigator.clipboard.writeText(fileHash);
+      setFileHashCopied(true);
+      setTimeout(() => setFileHashCopied(false), 2000);
+    } catch {
+      // ignore
+    }
   }
 
   return (
@@ -134,6 +156,22 @@ export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
             {t.estimatedChunks}: <span className="text-indigo-400 font-medium">{estimatedChunks}</span>
           </p>
         )}
+      </div>
+
+      {/* Password (encryption) */}
+      <div className="space-y-2">
+        <label className="block text-sm text-slate-300">{t.encryptPasswordLabel}</label>
+        <input
+          type="password"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          placeholder={t.encryptPasswordPlaceholder}
+          className="
+            w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5
+            text-slate-100 placeholder-slate-500 text-sm
+            focus:outline-none focus:border-indigo-400 transition-colors
+          "
+        />
       </div>
 
       {/* Error */}
@@ -203,6 +241,34 @@ export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
               </div>
             ))}
           </div>
+
+          {/* File hash */}
+          {fileHash && (
+            <div className="space-y-1">
+              <p className="text-slate-400 text-xs">{t.fileHashLabel}</p>
+              <div className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
+                <code className="flex-1 text-xs text-slate-300 bg-slate-900 rounded-lg px-3 py-2 font-mono break-all select-all">
+                  {fileHash}
+                </code>
+                <button
+                  onClick={copyFileHash}
+                  title={fileHashCopied ? t.fileHashCopied : t.fileHashLabel}
+                  className="
+                    shrink-0 text-xs px-3 py-2 rounded-lg
+                    bg-indigo-500/20 hover:bg-indigo-500 text-indigo-400 hover:text-white
+                    transition-all duration-150
+                  "
+                >
+                  {fileHashCopied ? '✓' : (
+                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                        d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                    </svg>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
