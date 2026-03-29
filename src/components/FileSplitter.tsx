@@ -178,7 +178,7 @@ export default function FileSplitter({ t, isRTL }: FileSplitterProps) {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? t.hidePassword : t.showPassword}
-            className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+            className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
           >
             {showPassword ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

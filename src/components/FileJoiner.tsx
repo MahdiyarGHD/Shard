@@ -7,6 +7,7 @@ import {
   sha256,
   downloadBlob,
   readFileAsArrayBuffer,
+  NEEDS_PASSWORD_ERROR,
 } from '../utils/fileUtils';
 import DropZone from './DropZone';
 import ProgressBar from './ProgressBar';
@@ -86,8 +87,11 @@ export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
       setChecksum(hash);
       setJoinedBlob(blob);
     } catch (err) {
+      // Encrypted chunks detected but no password was supplied
+      if (err instanceof Error && err.message === NEEDS_PASSWORD_ERROR) {
+        setError(t.errorPasswordRequired);
       // AES-GCM throws DOMException(OperationError) on wrong password / corrupted data
-      if (err instanceof DOMException && err.name === 'OperationError') {
+      } else if (err instanceof DOMException && err.name === 'OperationError') {
         setError(t.errorWrongPassword);
       } else {
         setError(t.errorReadingFile);
@@ -225,7 +229,7 @@ export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
             type="button"
             onClick={() => setShowPassword((v) => !v)}
             aria-label={showPassword ? t.hidePassword : t.showPassword}
-            className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors"
+            className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
           >
             {showPassword ? (
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
