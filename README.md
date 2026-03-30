@@ -6,6 +6,7 @@
 
 - **File Splitting** — Split any file into configurable-sized chunks (MB), download chunks individually or all at once.
 - **File Joining** — Reassemble chunks back into the original file; chunks are automatically sorted by part number.
+- **Password Protection** - You can set a password that will be required to reassemble files.
 - **SHA-256 Checksum** — Verify the integrity of the joined file with a SHA-256 hash.
 - **Drag-and-drop** — Drag files directly onto the drop zones.
 - **Persian / English UI** — Full bilingual support with automatic RTL layout for Persian.
