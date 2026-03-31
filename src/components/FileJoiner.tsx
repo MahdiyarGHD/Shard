@@ -331,7 +331,7 @@ export default function FileJoiner() {
                                                 : t("checksum")
                                         }
                                         className="
-.L.C.                      shrink-0 text-xs px-3 py-2 rounded-lg
+                      shrink-0 text-xs px-3 py-2 rounded-lg
                       bg-indigo-500/20 hover:bg-indigo-500 text-indigo-400 hover:text-white
                       transition-all duration-150
                     "
