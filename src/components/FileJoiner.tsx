@@ -1,327 +1,377 @@
-import { useState, useCallback } from 'react';
-import type { Translations } from '../utils/i18n';
+import { useState, useCallback } from "react";
+
 import {
-  formatBytes,
-  joinChunks,
-  sortChunkFiles,
-  sha256,
-  downloadBlob,
-  readFileAsArrayBuffer,
-  NEEDS_PASSWORD_ERROR,
-} from '../utils/fileUtils';
-import DropZone from './DropZone';
-import ProgressBar from './ProgressBar';
+    formatBytes,
+    joinChunks,
+    sortChunkFiles,
+    sha256,
+    downloadBlob,
+    readFileAsArrayBuffer,
+    NEEDS_PASSWORD_ERROR,
+} from "../utils/fileUtils";
+import DropZone from "./DropZone";
+import ProgressBar from "./ProgressBar";
+import { useTranslation } from "../utils/i18n/i18nProvider";
 
-interface FileJoinerProps {
-  t: Translations;
-  isRTL: boolean;
-}
+export default function FileJoiner() {
+    const { t, language } = useTranslation();
+    const isRTL = language === "fa";
+    const [chunkFiles, setChunkFiles] = useState<File[]>([]);
+    const [outputFilename, setOutputFilename] = useState("");
+    const [password, setPassword] = useState("");
+    const [showPassword, setShowPassword] = useState(false);
+    const [joining, setJoining] = useState(false);
+    const [progress, setProgress] = useState(0);
+    const [checksum, setChecksum] = useState("");
+    const [checksumCopied, setChecksumCopied] = useState(false);
+    const [joinedBlob, setJoinedBlob] = useState<Blob | null>(null);
+    const [error, setError] = useState("");
 
-export default function FileJoiner({ t, isRTL }: FileJoinerProps) {
-  const [chunkFiles, setChunkFiles] = useState<File[]>([]);
-  const [outputFilename, setOutputFilename] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [joining, setJoining] = useState(false);
-  const [progress, setProgress] = useState(0);
-  const [checksum, setChecksum] = useState('');
-  const [checksumCopied, setChecksumCopied] = useState(false);
-  const [joinedBlob, setJoinedBlob] = useState<Blob | null>(null);
-  const [error, setError] = useState('');
+    const handleChunkFiles = useCallback((files: File[]) => {
+        setChunkFiles((prev) => {
+            const existing = new Set(prev.map((f) => f.name + f.size));
+            const toAdd = files.filter((f) => !existing.has(f.name + f.size));
+            return sortChunkFiles([...prev, ...toAdd]);
+        });
+        setError("");
+        setChecksum("");
+        setJoinedBlob(null);
+    }, []);
 
-  const handleChunkFiles = useCallback((files: File[]) => {
-    setChunkFiles((prev) => {
-      const existing = new Set(prev.map((f) => f.name + f.size));
-      const toAdd = files.filter((f) => !existing.has(f.name + f.size));
-      return sortChunkFiles([...prev, ...toAdd]);
-    });
-    setError('');
-    setChecksum('');
-    setJoinedBlob(null);
-  }, []);
-
-  function removeChunk(index: number) {
-    setChunkFiles((prev) => {
-      const next = prev.filter((_, i) => i !== index);
-      return sortChunkFiles(next);
-    });
-    setChecksum('');
-    setJoinedBlob(null);
-  }
-
-  function clearAll() {
-    setChunkFiles([]);
-    setChecksum('');
-    setJoinedBlob(null);
-    setError('');
-    setProgress(0);
-  }
-
-  const guessOutputName = useCallback((): string => {
-    if (outputFilename.trim()) return outputFilename.trim();
-    if (chunkFiles.length === 0) return 'joined-file';
-    // Try to reconstruct original filename from the first chunk
-    const firstName = chunkFiles[0].name;
-    // Strip .partNNNN suffix and keep extension
-    const match = firstName.match(/^(.+)\.part\d+(\.[^.]+)?$/i);
-    if (match) {
-      const base = match[1];
-      const ext = match[2] ?? '';
-      return `${base}${ext}`;
+    function removeChunk(index: number) {
+        setChunkFiles((prev) => {
+            const next = prev.filter((_, i) => i !== index);
+            return sortChunkFiles(next);
+        });
+        setChecksum("");
+        setJoinedBlob(null);
     }
-    return firstName;
-  }, [chunkFiles, outputFilename]);
 
-  async function handleJoin() {
-    if (chunkFiles.length === 0) { setError(t.errorNoChunks); return; }
-    setError('');
-    setJoining(true);
-    setProgress(0);
-    setChecksum('');
-    setJoinedBlob(null);
-    try {
-      const blob = await joinChunks(chunkFiles, setProgress, password || undefined);
-      // Compute SHA-256
-      const buf = await readFileAsArrayBuffer(new File([blob], 'joined'));
-      const hash = await sha256(buf);
-      setChecksum(hash);
-      setJoinedBlob(blob);
-    } catch (err) {
-      // Encrypted chunks detected but no password was supplied
-      if (err instanceof Error && err.message === NEEDS_PASSWORD_ERROR) {
-        setError(t.errorPasswordRequired);
-      // AES-GCM throws DOMException(OperationError) on wrong password / corrupted data
-      } else if (err instanceof DOMException && err.name === 'OperationError') {
-        setError(t.errorWrongPassword);
-      } else {
-        setError(t.errorReadingFile);
-      }
-    } finally {
-      setJoining(false);
+    function clearAll() {
+        setChunkFiles([]);
+        setChecksum("");
+        setJoinedBlob(null);
+        setError("");
+        setProgress(0);
     }
-  }
 
-  function handleDownload() {
-    if (!joinedBlob) return;
-    downloadBlob(joinedBlob, guessOutputName());
-  }
+    const guessOutputName = useCallback((): string => {
+        if (outputFilename.trim()) return outputFilename.trim();
+        if (chunkFiles.length === 0) return "joined-file";
+        // Try to reconstruct original filename from the first chunk
+        const firstName = chunkFiles[0].name;
+        // Strip .partNNNN suffix and keep extension
+        const match = firstName.match(/^(.+)\.part\d+(\.[^.]+)?$/i);
+        if (match) {
+            const base = match[1];
+            const ext = match[2] ?? "";
+            return `${base}${ext}`;
+        }
+        return firstName;
+    }, [chunkFiles, outputFilename]);
 
-  async function copyChecksum() {
-    if (!checksum) return;
-    try {
-      await navigator.clipboard.writeText(checksum);
-      setChecksumCopied(true);
-      setTimeout(() => setChecksumCopied(false), 2000);
-    } catch {
-      // ignore
+    async function handleJoin() {
+        if (chunkFiles.length === 0) {
+            setError(t("error.error_no_chunks"));
+            return;
+        }
+        setError("");
+        setJoining(true);
+        setProgress(0);
+        setChecksum("");
+        setJoinedBlob(null);
+        try {
+            const blob = await joinChunks(chunkFiles, setProgress, password || undefined);
+            // Compute SHA-256
+            const buf = await readFileAsArrayBuffer(new File([blob], "joined"));
+            const hash = await sha256(buf);
+            setChecksum(hash);
+            setJoinedBlob(blob);
+        } catch (err) {
+            // Encrypted chunks detected but no password was supplied
+            if (err instanceof Error && err.message === NEEDS_PASSWORD_ERROR) {
+                setError(t("error.error_password_required"));
+                // AES-GCM throws DOMException(OperationError) on wrong password / corrupted data
+            } else if (err instanceof DOMException && err.name === "OperationError") {
+                setError(t("error.error_wrong_password"));
+            } else {
+                setError(t("error.error_reading_file"));
+            }
+        } finally {
+            setJoining(false);
+        }
     }
-  }
 
-  const totalSize = chunkFiles.reduce((s, f) => s + f.size, 0);
+    function handleDownload() {
+        if (!joinedBlob) return;
+        downloadBlob(joinedBlob, guessOutputName());
+    }
 
-  return (
-    <div className="space-y-6 animate-fade-in">
-      <h2 className="text-xl font-semibold text-slate-100">{t.joinTitle}</h2>
+    async function copyChecksum() {
+        if (!checksum) return;
+        try {
+            await navigator.clipboard.writeText(checksum);
+            setChecksumCopied(true);
+            setTimeout(() => setChecksumCopied(false), 2000);
+        } catch {
+            // ignore
+        }
+    }
 
-      {/* Drop zone */}
-      <DropZone t={t} multiple onFiles={handleChunkFiles}>
-        <div className="space-y-2">
-          <div className="flex justify-center">
-            <svg
-              className="w-10 h-10 text-slate-600"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={1.5}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
-            </svg>
-          </div>
-          <p className="text-slate-400 text-sm">{t.dropChunksHere}</p>
-        </div>
-      </DropZone>
+    const totalSize = chunkFiles.reduce((s, f) => s + f.size, 0);
 
-      {/* Chunk list */}
-      {chunkFiles.length > 0 && (
-        <div className="space-y-3">
-          <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <span className="text-slate-300 text-sm">
-              {t.selectedChunks}{' '}
-              <span className="text-indigo-400 font-semibold">({chunkFiles.length})</span>
-              {' — '}
-              <span className="text-slate-400 text-xs">{formatBytes(totalSize)}</span>
-            </span>
-            <button
-              onClick={clearAll}
-              className="text-xs text-red-400 hover:text-red-300 transition-colors"
-            >
-              {t.clearAll}
-            </button>
-          </div>
-          <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
-            {chunkFiles.map((file, i) => (
-              <div
-                key={`${file.name}-${file.size}`}
-                className={`
+    return (
+        <div className="space-y-6 animate-fade-in">
+            <h2 className="text-xl font-semibold text-slate-100">{t("join_title")}</h2>
+
+            {/* Drop zone */}
+            <DropZone multiple onFiles={handleChunkFiles}>
+                <div className="space-y-2">
+                    <div className="flex justify-center">
+                        <svg
+                            className="w-10 h-10 text-slate-600"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={1.5}
+                                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                            />
+                        </svg>
+                    </div>
+                    <p className="text-slate-400 text-sm">{t("drop_chunks_here")}</p>
+                </div>
+            </DropZone>
+
+            {/* Chunk list */}
+            {chunkFiles.length > 0 && (
+                <div className="space-y-3">
+                    <div
+                        className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : ""}`}
+                    >
+                        <span className="text-slate-300 text-sm">
+                            {t("selected_chunks")}{" "}
+                            <span className="text-indigo-400 font-semibold">
+                                ({chunkFiles.length})
+                            </span>
+                            {" — "}
+                            <span className="text-slate-400 text-xs">
+                                {formatBytes(totalSize)}
+                            </span>
+                        </span>
+                        <button
+                            onClick={clearAll}
+                            className="text-xs text-red-400 hover:text-red-300 transition-colors"
+                        >
+                            {t("clear_all")}
+                        </button>
+                    </div>
+                    <div className="space-y-2 max-h-52 overflow-y-auto pr-1">
+                        {chunkFiles.map((file, i) => (
+                            <div
+                                key={`${file.name}-${file.size}`}
+                                className={`
                   flex items-center justify-between gap-2
                   bg-slate-800 rounded-xl px-4 py-3
                   border border-slate-700/60
                   animate-fade-in
-                  ${isRTL ? 'flex-row-reverse' : ''}
+                  ${isRTL ? "flex-row-reverse" : ""}
                 `}
-              >
-                <div className={`min-w-0 ${isRTL ? 'text-right' : 'text-left'}`}>
-                  <p className="text-slate-200 text-xs font-medium truncate">{file.name}</p>
-                  <p className="text-slate-500 text-xs">{formatBytes(file.size)}</p>
+                            >
+                                <div
+                                    className={`min-w-0 ${isRTL ? "text-right" : "text-left"}`}
+                                >
+                                    <p className="text-slate-200 text-xs font-medium truncate">
+                                        {file.name}
+                                    </p>
+                                    <p className="text-slate-500 text-xs">
+                                        {formatBytes(file.size)}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => removeChunk(i)}
+                                    className="shrink-0 text-xs text-red-400 hover:text-red-300 transition-colors"
+                                >
+                                    {t("remove_chunk")}
+                                </button>
+                            </div>
+                        ))}
+                    </div>
                 </div>
-                <button
-                  onClick={() => removeChunk(i)}
-                  className="shrink-0 text-xs text-red-400 hover:text-red-300 transition-colors"
-                >
-                  {t.removeChunk}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )}
 
-      {chunkFiles.length === 0 && (
-        <p className="text-slate-500 text-sm text-center">{t.noChunks}</p>
-      )}
+            {chunkFiles.length === 0 && (
+                <p className="text-slate-500 text-sm text-center">{t("no_chunks")}</p>
+            )}
 
-      {/* Output filename */}
-      <div className="space-y-2">
-        <label className="block text-sm text-slate-300">{t.outputFilename}</label>
-        <input
-          type="text"
-          value={outputFilename}
-          onChange={(e) => setOutputFilename(e.target.value)}
-          placeholder={t.outputFilenamePlaceholder}
-          className="
+            {/* Output filename */}
+            <div className="space-y-2">
+                <label className="block text-sm text-slate-300">{t("output_filename")}</label>
+                <input
+                    type="text"
+                    value={outputFilename}
+                    onChange={(e) => setOutputFilename(e.target.value)}
+                    placeholder={t("output_filename_placeholder")}
+                    className="
             w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5
             text-slate-100 placeholder-slate-500 text-sm
             focus:outline-none focus:border-indigo-400 transition-colors
           "
-        />
-      </div>
+                />
+            </div>
 
-      {/* Password (decryption) */}
-      <div className="space-y-2">
-        <label className="block text-sm text-slate-300">{t.decryptPasswordLabel}</label>
-        <div className="relative">
-          <input
-            type={showPassword ? 'text' : 'password'}
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            placeholder={t.decryptPasswordPlaceholder}
-            className="
-              w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 pr-11
+            {/* Password (decryption) */}
+            <div className="space-y-2">
+                <label className="block text-sm text-slate-300">
+                    {t("decrypt_password_label")}
+                </label>
+                <div className="relative">
+                    <input
+                        type={showPassword ? "text" : "password"}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder={t("decrypt_password_placeholder")}
+                        className="
+.PP              w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 pr-11
               text-slate-100 placeholder-slate-500 text-sm
               focus:outline-none focus:border-indigo-400 transition-colors
             "
-          />
-          <button
-            type="button"
-            onClick={() => setShowPassword((v) => !v)}
-            aria-label={showPassword ? t.hidePassword : t.showPassword}
-            className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
-          >
-            {showPassword ? (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7s4-7 9-7a10.05 10.05 0 011.875.175M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.364-4.364l-14 14" />
-              </svg>
-            ) : (
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                  d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-              </svg>
-            )}
-          </button>
-        </div>
-      </div>
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? t("hide_password") : t("show_password")}
+                        className="absolute inset-y-0 right-3 flex items-center text-slate-400 hover:text-slate-200 transition-colors cursor-pointer"
+                    >
+                        {showPassword ? (
+                            <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M13.875 18.825A10.05 10.05 0 0112 19c-5 0-9-4-9-7s4-7 9-7a10.05 10.05 0 011.875.175M15 12a3 3 0 11-6 0 3 3 0 016 0zm6.364-4.364l-14 14"
+                                />
+                            </svg>
+                        ) : (
+                            <svg
+                                className="w-4 h-4"
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                                />
+                                <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    strokeWidth={2}
+                                    d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                                />
+                            </svg>
+                        )}
+                    </button>
+                </div>
+            </div>
 
-      {/* Error */}
-      {error && (
-        <p className="text-red-400 text-sm animate-fade-in">{error}</p>
-      )}
+            {/* Error */}
+            {error && <p className="text-red-400 text-sm animate-fade-in">{error}</p>}
 
-      {/* Join button */}
-      <button
-        onClick={handleJoin}
-        disabled={joining || chunkFiles.length === 0}
-        className="
+            {/* Join button */}
+            <button
+                onClick={handleJoin}
+                disabled={joining || chunkFiles.length === 0}
+                className="
           w-full py-3 rounded-xl font-medium text-sm
           bg-indigo-500 hover:bg-indigo-400 text-white
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-all duration-200 active:scale-[0.98]
         "
-      >
-        {joining ? t.joining : t.joinButton}
-      </button>
+            >
+                {joining ? t("joining") : t("join_button")}
+            </button>
 
-      {/* Progress */}
-      {joining && (
-        <ProgressBar percent={progress} label={t.joinProgress} />
-      )}
+            {/* Progress */}
+            {joining && <ProgressBar percent={progress} label={t("join_progress")} />}
 
-      {/* Result */}
-      {joinedBlob && !joining && (
-        <div className="space-y-4 animate-fade-in">
-          <div className="bg-slate-800/70 rounded-2xl border border-slate-700 p-4 space-y-3">
-            <p className="text-green-400 text-sm font-medium">{t.joinComplete}</p>
+            {/* Result */}
+            {joinedBlob && !joining && (
+                <div className="space-y-4 animate-fade-in">
+                    <div className="bg-slate-800/70 rounded-2xl border border-slate-700 p-4 space-y-3">
+                        <p className="text-green-400 text-sm font-medium">
+                            {t("join_complete")}
+                        </p>
 
-            {/* Checksum */}
-            {checksum && (
-              <div className="space-y-1">
-                <p className="text-slate-400 text-xs">{t.checksumLabel}</p>
-                <div
-                  className={`flex items-center gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}
-                >
-                  <code className="flex-1 text-xs text-slate-300 bg-slate-900 rounded-lg px-3 py-2 font-mono break-all select-all">
-                    {checksum}
-                  </code>
-                  <button
-                    onClick={copyChecksum}
-                    title={checksumCopied ? t.checksumCopied : t.checksum}
-                    className="
-                      shrink-0 text-xs px-3 py-2 rounded-lg
+                        {/* Checksum */}
+                        {checksum && (
+                            <div className="space-y-1">
+                                <p className="text-slate-400 text-xs">{t("checksum_label")}</p>
+                                <div
+                                    className={`flex items-center gap-2 ${isRTL ? "flex-row-reverse" : ""}`}
+                                >
+                                    <code className="flex-1 text-xs text-slate-300 bg-slate-900 rounded-lg px-3 py-2 font-mono break-all select-all">
+                                        {checksum}
+                                    </code>
+                                    <button
+                                        onClick={copyChecksum}
+                                        title={
+                                            checksumCopied
+                                                ? t("checksum_copied")
+                                                : t("checksum")
+                                        }
+                                        className="
+.L.C.                      shrink-0 text-xs px-3 py-2 rounded-lg
                       bg-indigo-500/20 hover:bg-indigo-500 text-indigo-400 hover:text-white
                       transition-all duration-150
                     "
-                  >
-                    {checksumCopied ? '✓' : (
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-                      </svg>
-                    )}
-                  </button>
-                </div>
-              </div>
-            )}
+                                    >
+                                        {checksumCopied ? (
+                                            "✓"
+                                        ) : (
+                                            <svg
+                                                className="w-3.5 h-3.5"
+                                                fill="none"
+                                                stroke="currentColor"
+                                                viewBox="0 0 24 24"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2}
+                                                    d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                                                />
+                                            </svg>
+                                        )}
+                                    </button>
+                                </div>
+                            </div>
+                        )}
 
-            {/* Download */}
-            <button
-              onClick={handleDownload}
-              className="
+                        {/* Download */}
+                        <button
+                            onClick={handleDownload}
+                            className="
                 w-full py-2.5 rounded-xl font-medium text-sm
                 bg-green-600/80 hover:bg-green-600 text-white
                 transition-all duration-200 active:scale-[0.98]
               "
-            >
-              {t.downloadJoined}
-            </button>
-          </div>
+                        >
+                            {t("download_joined")}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
-      )}
-    </div>
-  );
+    );
 }
