@@ -235,7 +235,7 @@ export default function FileJoiner() {
                         onChange={(e) => setPassword(e.target.value)}
                         placeholder={t("decrypt_password_placeholder")}
                         className="
-.PP              w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 pr-11
+              w-full bg-slate-800 border border-slate-600 rounded-xl px-4 py-2.5 pr-11
               text-slate-100 placeholder-slate-500 text-sm
               focus:outline-none focus:border-indigo-400 transition-colors
             "
